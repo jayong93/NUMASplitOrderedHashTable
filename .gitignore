@@ -1,0 +1,8 @@
+**/CMakeCache.txt
+**/Makefile
+**/*.cmake
+**/CMakeFiles/*
+**/bin/*
+/.vs
+/.vscode
+/out/build/x64-Debug
