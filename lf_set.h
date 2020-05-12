@@ -22,11 +22,11 @@ constexpr uintptr_t POINTER_ONLY = -2;
 class LFNODE
 {
 public:
-    long key;
+    unsigned long key;
     unsigned long value;
     LFNODE *next;
 
-    LFNODE(long key, unsigned long value) : key{key}, next{nullptr}, value{value} {}
+    LFNODE(unsigned long key, unsigned long value) : key{key}, next{nullptr}, value{value} {}
 
     LFNODE *GetNext()
     {
@@ -114,7 +114,7 @@ class LFSET
     LFNODE head;
 
 public:
-    LFSET() : head{LONG_MIN, 0} {}
+    LFSET() : head{0, 0} {}
     void Init()
     {
         while (head.GetNext() != nullptr)
@@ -139,7 +139,7 @@ public:
         cout << endl;
     }
 
-    bool Find(long x, LFNODE **pred, LFNODE **curr)
+    bool Find(unsigned long x, LFNODE **pred, LFNODE **curr)
     {
         start_op();
     retry:
@@ -169,7 +169,7 @@ public:
         }
     }
     // 성공하면 삽입된 노드 pointer 반환, 실패하면 이미 삽입된 노드의 pointer 반환
-    LFNODE *Add(long x, unsigned long value = 0)
+    LFNODE *Add(unsigned long x, unsigned long value = 0)
     {
         LFNODE *pred, *curr;
         LFNODE *e = new LFNODE(x, value);
@@ -217,7 +217,7 @@ public:
             }
         }
     }
-    bool Remove(long x)
+    bool Remove(unsigned long x)
     {
         LFNODE *pred, *curr;
         while (true)
@@ -243,7 +243,7 @@ public:
             }
         }
     }
-    optional<unsigned long> Contains(long x)
+    optional<unsigned long> Contains(unsigned long x)
     {
         start_op();
         optional<unsigned long> ret;
@@ -260,7 +260,7 @@ public:
         end_op();
         return ret;
     }
-    optional<unsigned long> Contains(LFNODE &bucket, long x)
+    optional<unsigned long> Contains(LFNODE &bucket, unsigned long x)
     {
         start_op();
         optional<unsigned long> ret;
