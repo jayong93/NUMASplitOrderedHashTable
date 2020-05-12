@@ -1,3 +1,6 @@
+#ifndef CDC7572F_E1AD_4B7D_B182_4CA81AA68BB4
+#define CDC7572F_E1AD_4B7D_B182_4CA81AA68BB4
+
 #include <mutex>
 #include <thread>
 #include <iostream>
@@ -8,6 +11,7 @@
 #include <atomic>
 #include <climits>
 #include <algorithm>
+#include <optional>
 
 using namespace std;
 
@@ -18,11 +22,11 @@ constexpr uintptr_t POINTER_ONLY = -2;
 class LFNODE
 {
 public:
-    int key;
+    long key;
     unsigned long value;
     LFNODE *next;
 
-    LFNODE(int key, unsigned long value) : key{key}, next{nullptr}, value{value} {}
+    LFNODE(long key, unsigned long value) : key{key}, next{nullptr}, value{value} {}
 
     LFNODE *GetNext()
     {
@@ -107,16 +111,13 @@ void end_op();
 
 class LFSET
 {
-    LFNODE head, tail;
+    LFNODE head;
 
 public:
-    LFSET() : head{(int)0x80000000, 0}, tail{0x7FFFFFFF, 0}
-    {
-        head.SetNext(&tail);
-    }
+    LFSET() : head{LONG_MIN, 0} {}
     void Init()
     {
-        while (head.GetNext() != &tail)
+        while (head.GetNext() != nullptr)
         {
             LFNODE *temp = head.GetNext();
             head.next = temp->next;
@@ -130,59 +131,83 @@ public:
         cout << "Result Contains : ";
         for (int i = 0; i < 20; ++i)
         {
-            cout << ptr->key << ", ";
-            if (&tail == ptr)
+            if (nullptr == ptr)
                 break;
+            cout << ptr->key << ", ";
             ptr = ptr->GetNext();
         }
         cout << endl;
     }
 
-    void Find(int x, LFNODE **pred, LFNODE **curr)
+    bool Find(long x, LFNODE **pred, LFNODE **curr)
     {
         start_op();
     retry:
-        LFNODE *pr = &head;
-        LFNODE *cu = pr->GetNext();
+        *pred = &head;
+        *curr = (*pred)->GetNext();
         while (true)
         {
+            if (*curr == nullptr)
+                return false;
             bool removed;
-            LFNODE *su = cu->GetNextWithMark(&removed);
-            while (true == removed)
+            LFNODE *su = (*curr)->GetNextWithMark(&removed);
+            if (true == removed)
             {
-                if (false == pr->CAS(cu, su, false, false))
+                if (false == (*pred)->CAS(*curr, su, false, false))
                     goto retry;
-                retire(cu);
-                cu = su;
-                su = cu->GetNextWithMark(&removed);
+                retire(*curr);
             }
-            if (cu->key >= x)
+            else if ((*curr)->key >= x)
             {
-                *pred = pr;
-                *curr = cu;
-                return;
+                return ((*curr)->key == x);
             }
-            pr = cu;
-            cu = cu->GetNext();
+            else
+            {
+                *pred = *curr;
+            }
+            *curr = (*curr)->GetNext();
         }
     }
-    bool Add(int x, unsigned long value = 0)
+    // 성공하면 삽입된 노드 pointer 반환, 실패하면 이미 삽입된 노드의 pointer 반환
+    LFNODE *Add(long x, unsigned long value = 0)
+    {
+        LFNODE *pred, *curr;
+        LFNODE *e = new LFNODE(x, value);
+        while (true)
+        {
+            if (true == Find(x, &pred, &curr))
+            {
+                end_op();
+                delete e;
+                return curr;
+            }
+            else
+            {
+                e->SetNext(curr);
+                if (false == pred->CAS(curr, e, false, false))
+                {
+                    end_op();
+                    continue;
+                }
+                end_op();
+                return e;
+            }
+        }
+    }
+    bool Add(LFNODE &node)
     {
         LFNODE *pred, *curr;
         while (true)
         {
-            Find(x, &pred, &curr);
-
-            if (curr->key == x)
+            if (true == Find(node.key, &pred, &curr))
             {
                 end_op();
                 return false;
             }
             else
             {
-                LFNODE *e = new LFNODE(x, value);
-                e->SetNext(curr);
-                if (false == pred->CAS(curr, e, false, false))
+                node.SetNext(curr);
+                if (false == pred->CAS(curr, &node, false, false))
                 {
                     end_op();
                     continue;
@@ -192,15 +217,12 @@ public:
             }
         }
     }
-    bool Remove(int x)
+    bool Remove(long x)
     {
         LFNODE *pred, *curr;
         while (true)
         {
-            Find(x, &pred, &curr);
-
-            if (curr->key != x)
-            {
+            if (false == Find(x, &pred, &curr)) {
                 end_op();
                 return false;
             }
@@ -216,23 +238,44 @@ public:
                 {
                     retire(curr);
                 }
-                // delete curr;
                 end_op();
                 return true;
             }
         }
     }
-    bool Contains(int x)
+    optional<unsigned long> Contains(long x)
     {
         start_op();
-        LFNODE *curr = &head;
-        while (curr->key < x)
+        optional<unsigned long> ret;
+        LFNODE *curr = head.GetNext();
+        while (curr != nullptr && curr->key < x)
         {
             curr = curr->GetNext();
         }
 
-        auto ret = (false == curr->IsMarked()) && (x == curr->key);
+        if (curr != nullptr && (false == curr->IsMarked()) && (x == curr->key))
+        {
+            ret = curr->value;
+        }
+        end_op();
+        return ret;
+    }
+    optional<unsigned long> Contains(LFNODE &bucket, long x)
+    {
+        start_op();
+        optional<unsigned long> ret;
+        LFNODE *curr = &bucket;
+        while (curr != nullptr && curr->key < x)
+        {
+            curr = curr->GetNext();
+        }
+
+        if (curr != nullptr && (false == curr->IsMarked()) && (x == curr->key))
+        {
+            ret = curr->value;
+        }
         end_op();
         return ret;
     }
 };
+#endif /* CDC7572F_E1AD_4B7D_B182_4CA81AA68BB4 */
