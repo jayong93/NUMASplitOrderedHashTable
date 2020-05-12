@@ -12,6 +12,7 @@ template<typename T>
 using Segments = std::atomic<std::array<T, SEGMENT_SIZE>*>;
 
 struct BucketArray {
+    BucketArray(LFNODE* first_bucket);
     std::array<Segments<LFNODE*>, SEGMENT_SIZE> segments;
     LFNODE* get_bucket(uintptr_t bucket);
     void set_bucket(uintptr_t bucket, LFNODE* head);
@@ -20,6 +21,7 @@ struct BucketArray {
 class SO_Hashtable
 {
 public:
+    SO_Hashtable();
     void init_bucket(uintptr_t bucket);
     bool remove(unsigned long key);
     optional<unsigned long> find(unsigned long key);

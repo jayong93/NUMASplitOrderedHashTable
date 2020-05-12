@@ -7,6 +7,7 @@ set(OUTPUT_NAME "${CMAKE_PROJECT_NAME}")
 set(SRC_FILES
     main.cpp
     lf_set.cpp
+    split_ordered.cpp
     )
 
 if (NOT CMAKE_BUILD_TYPE)

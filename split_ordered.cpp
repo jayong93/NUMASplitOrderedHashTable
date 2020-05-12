@@ -43,6 +43,7 @@ uintptr_t get_parent(uintptr_t bucket)
         }
         mask >>= 1;
     }
+    return 0;
 }
 
 LFNODE *BucketArray::get_bucket(uintptr_t bucket)
@@ -130,9 +131,21 @@ bool SO_Hashtable::insert(unsigned long key, unsigned long value)
     }
 
     auto curr_size = this->bucket_num.load(memory_order_relaxed);
-    if (this->item_num.fetch_add(1, memory_order_relaxed) + 1 / curr_size > LOAD_FACTOR)
+    if ((this->item_num.fetch_add(1, memory_order_relaxed) + 1) / curr_size > LOAD_FACTOR)
     {
         this->bucket_num.compare_exchange_strong(curr_size, curr_size * 2);
     }
     return true;
+}
+
+SO_Hashtable::SO_Hashtable() : bucket_num{2}, item_num{0} {
+    LFNODE* first_bucket = new LFNODE{0, 0};
+    item_set.Add(*first_bucket);
+    bucket_array = new BucketArray{first_bucket};
+}
+
+BucketArray::BucketArray(LFNODE* first_bucket) {
+    auto first_arr = new array<LFNODE*, SEGMENT_SIZE>;
+    (*first_arr)[0] = first_bucket;
+    segments[0].store(first_arr, memory_order_relaxed);
 }
