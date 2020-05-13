@@ -95,11 +95,11 @@ void LFSET::Dump()
     cout << endl;
 }
 
-bool LFSET::Find(unsigned long x, LFNODE **pred, LFNODE **curr)
+bool LFSET::Find(LFNODE& from, unsigned long x, LFNODE **pred, LFNODE **curr)
 {
     start_op();
 retry:
-    *pred = &head;
+    *pred = &from;
     *curr = (*pred)->GetNext();
     while (true)
     {
@@ -125,13 +125,13 @@ retry:
     }
 }
 
-LFNODE *LFSET::Add(unsigned long x, unsigned long value)
+LFNODE *LFSET::Add(LFNODE& from, unsigned long x, unsigned long value)
 {
     LFNODE *pred, *curr;
     LFNODE *e = new LFNODE(x, value);
     while (true)
     {
-        if (true == Find(x, &pred, &curr))
+        if (true == Find(from, x, &pred, &curr))
         {
             end_op();
             delete e;
@@ -151,12 +151,12 @@ LFNODE *LFSET::Add(unsigned long x, unsigned long value)
     }
 }
 
-bool LFSET::Add(LFNODE &node)
+bool LFSET::Add(LFNODE& from,LFNODE &node)
 {
     LFNODE *pred, *curr;
     while (true)
     {
-        if (true == Find(node.key, &pred, &curr))
+        if (true == Find(from, node.key, &pred, &curr))
         {
             end_op();
             return false;
@@ -175,12 +175,12 @@ bool LFSET::Add(LFNODE &node)
     }
 }
 
-bool LFSET::Remove(unsigned long x)
+bool LFSET::Remove(LFNODE& from,unsigned long x)
 {
     LFNODE *pred, *curr;
     while (true)
     {
-        if (false == Find(x, &pred, &curr))
+        if (false == Find(from, x, &pred, &curr))
         {
             end_op();
             return false;
@@ -221,11 +221,11 @@ optional<unsigned long> LFSET::Contains(unsigned long x)
     return ret;
 }
 
-optional<unsigned long> LFSET::Contains(LFNODE &bucket, unsigned long x)
+optional<unsigned long> LFSET::Contains(LFNODE &from, unsigned long x)
 {
     start_op();
     optional<unsigned long> ret;
-    LFNODE *curr = &bucket;
+    LFNODE *curr = &from;
     while (curr != nullptr && curr->key < x)
     {
         curr = curr->GetNext();

@@ -88,12 +88,13 @@ public:
     LFSET();
     void Init();
     void Dump();
-    bool Find(unsigned long x, LFNODE **pred, LFNODE **curr);
+    bool Find(LFNODE &from, unsigned long x, LFNODE **pred, LFNODE **curr);
     // 성공하면 삽입된 노드 pointer 반환, 실패하면 이미 삽입된 노드의 pointer 반환
-    LFNODE *Add(unsigned long x, unsigned long value = 0);
-    bool Add(LFNODE &node);
-    bool Remove(unsigned long x);
+    LFNODE *Add(LFNODE &from, unsigned long x, unsigned long value = 0);
+    bool Add(LFNODE &from, LFNODE &node);
+    bool Remove(LFNODE &from, unsigned long x);
     optional<unsigned long> Contains(unsigned long x);
-    optional<unsigned long> Contains(LFNODE &bucket, unsigned long x);
+    optional<unsigned long> Contains(LFNODE &from, unsigned long x);
+    LFNODE& get_head() {return head;}
 };
 #endif /* CDC7572F_E1AD_4B7D_B182_4CA81AA68BB4 */

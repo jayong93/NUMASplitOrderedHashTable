@@ -81,25 +81,28 @@ void BucketArray::set_bucket(uintptr_t bucket, LFNODE *head)
     (*seg_ptr)[bucket % SEGMENT_SIZE] = head;
 }
 
-void SO_Hashtable::init_bucket(uintptr_t bucket)
+LFNODE* SO_Hashtable::init_bucket(uintptr_t bucket)
 {
     auto parent = get_parent(bucket);
-    if (this->bucket_array->get_bucket(parent) == nullptr)
+    auto parent_node = this->bucket_array->get_bucket(parent);
+    if (parent_node == nullptr)
     {
-        this->init_bucket(parent);
+        parent_node = this->init_bucket(parent);
     }
-    auto dummy = item_set.Add(so_dummy_key(bucket));
+    auto dummy = item_set.Add(*parent_node, so_dummy_key(bucket));
     this->bucket_array->set_bucket(bucket, dummy);
+    return dummy;
 }
 
 bool SO_Hashtable::remove(unsigned long key)
 {
     auto bucket = key % this->bucket_num.load(memory_order_relaxed);
-    if (this->bucket_array->get_bucket(bucket) == nullptr)
+    auto bucket_node = this->bucket_array->get_bucket(bucket);
+    if (bucket_node == nullptr)
     {
-        this->init_bucket(bucket);
+        bucket_node = this->init_bucket(bucket);
     }
-    if (false == this->item_set.Remove(so_regular_key(key)))
+    if (false == this->item_set.Remove(*bucket_node, so_regular_key(key)))
         return false;
 
     this->item_num.fetch_sub(1, memory_order_relaxed);
@@ -120,11 +123,12 @@ bool SO_Hashtable::insert(unsigned long key, unsigned long value)
 {
     auto node = new LFNODE{so_regular_key(key), value};
     auto bucket = key % this->bucket_num.load(memory_order_relaxed);
-    if (this->bucket_array->get_bucket(bucket) == nullptr)
+    auto bucket_node = this->bucket_array->get_bucket(bucket);
+    if (bucket_node == nullptr)
     {
-        this->init_bucket(bucket);
+        bucket_node = this->init_bucket(bucket);
     }
-    if (!this->item_set.Add(*node))
+    if (!this->item_set.Add(*bucket_node, *node))
     {
         delete node;
         return false;
@@ -138,14 +142,16 @@ bool SO_Hashtable::insert(unsigned long key, unsigned long value)
     return true;
 }
 
-SO_Hashtable::SO_Hashtable() : bucket_num{2}, item_num{0} {
-    LFNODE* first_bucket = new LFNODE{0, 0};
-    item_set.Add(*first_bucket);
+SO_Hashtable::SO_Hashtable() : bucket_num{2}, item_num{0}
+{
+    LFNODE *first_bucket = new LFNODE{0, 0};
+    item_set.Add(item_set.get_head(), *first_bucket);
     bucket_array = new BucketArray{first_bucket};
 }
 
-BucketArray::BucketArray(LFNODE* first_bucket) {
-    auto first_arr = new array<LFNODE*, SEGMENT_SIZE>;
+BucketArray::BucketArray(LFNODE *first_bucket)
+{
+    auto first_arr = new array<LFNODE *, SEGMENT_SIZE>;
     (*first_arr)[0] = first_bucket;
     segments[0].store(first_arr, memory_order_relaxed);
 }

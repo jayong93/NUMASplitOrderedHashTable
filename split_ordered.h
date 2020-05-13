@@ -22,7 +22,6 @@ class SO_Hashtable
 {
 public:
     SO_Hashtable();
-    void init_bucket(uintptr_t bucket);
     bool remove(unsigned long key);
     optional<unsigned long> find(unsigned long key);
     bool insert(unsigned long key, unsigned long value);
@@ -32,5 +31,7 @@ private:
     atomic_uintptr_t item_num{0};
     LFSET item_set;
     BucketArray* bucket_array;
+
+    LFNODE* init_bucket(uintptr_t bucket);
 };
 #endif /* ADDE381D_44C2_4BEC_A967_FE5043D7D5B2 */
