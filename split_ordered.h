@@ -3,6 +3,7 @@
 
 #include <array>
 #include <atomic>
+#include <memory>
 #include "lf_set.h"
 
 constexpr unsigned SEGMENT_SIZE = 1024*1024;
@@ -30,7 +31,7 @@ private:
     atomic_uintptr_t bucket_num{2};
     atomic_uintptr_t item_num{0};
     LFSET item_set;
-    BucketArray* bucket_array;
+    std::unique_ptr<BucketArray> bucket_array;
 
     LFNODE* init_bucket(uintptr_t bucket);
 };

@@ -10,11 +10,11 @@ struct EpochNode
 };
 
 static atomic_ullong g_epoch{0};
-static atomic_ullong *t_epochs[MAX_THREAD];
+static atomic_ullong t_epochs[MAX_THREAD];
 thread_local vector<EpochNode> retired_list;
 thread_local unsigned counter;
-constexpr unsigned epoch_freq = 20;
-constexpr unsigned empty_freq = 10;
+constexpr unsigned epoch_freq = 100;
+constexpr unsigned empty_freq = 1000;
 static atomic_ullong tid_counter{0};
 thread_local unsigned tid;
 
@@ -31,7 +31,7 @@ void retire(LFNODE *node)
         auto min_epoch = ULLONG_MAX;
         for (auto &epoch : t_epochs)
         {
-            auto e = epoch->load(memory_order_acquire);
+            auto e = epoch.load(memory_order_acquire);
             if (min_epoch > e)
             {
                 min_epoch = e;
@@ -52,23 +52,16 @@ void retire(LFNODE *node)
 
 void start_op()
 {
-    t_epochs[tid % MAX_THREAD]->store(g_epoch.load(memory_order_relaxed), memory_order_release);
+    t_epochs[tid % MAX_THREAD].store(g_epoch.load(memory_order_relaxed), memory_order_release);
 }
 
 void end_op()
 {
-    t_epochs[tid % MAX_THREAD]->store(ULLONG_MAX, memory_order_release);
+    t_epochs[tid % MAX_THREAD].store(ULLONG_MAX, memory_order_release);
 }
 
 LFSET::LFSET() : head{0, 0}
 {
-    for (auto i = 0; i < MAX_THREAD; ++i)
-    {
-        if (t_epochs[i] == nullptr)
-        {
-            t_epochs[i] = new atomic_ullong{0};
-        }
-    }
 }
 
 void LFSET::Init()

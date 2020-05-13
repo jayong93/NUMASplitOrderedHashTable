@@ -146,7 +146,7 @@ SO_Hashtable::SO_Hashtable() : bucket_num{2}, item_num{0}
 {
     LFNODE *first_bucket = new LFNODE{0, 0};
     item_set.Add(item_set.get_head(), *first_bucket);
-    bucket_array = new BucketArray{first_bucket};
+    bucket_array.reset(new BucketArray{first_bucket});
 }
 
 BucketArray::BucketArray(LFNODE *first_bucket)
