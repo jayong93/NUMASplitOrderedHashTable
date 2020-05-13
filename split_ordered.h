@@ -9,11 +9,11 @@ constexpr unsigned SEGMENT_SIZE = 1024*1024;
 constexpr unsigned LOAD_FACTOR = 1;
 
 template<typename T>
-using Segments = std::atomic<std::array<T, SEGMENT_SIZE>*>;
+using Segments = std::array<T, SEGMENT_SIZE>;
 
 struct BucketArray {
     BucketArray(LFNODE* first_bucket);
-    std::array<Segments<LFNODE*>, SEGMENT_SIZE> segments;
+    std::array<std::atomic<Segments<LFNODE*>*>, SEGMENT_SIZE> segments;
     LFNODE* get_bucket(uintptr_t bucket);
     void set_bucket(uintptr_t bucket, LFNODE* head);
 };
