@@ -42,7 +42,7 @@ uintptr_t get_parent(uintptr_t bucket)
     auto mask = 1 << (width<uintptr_t>() - 1);
     for (auto i = 0; i < width<uintptr_t>(); ++i)
     {
-        if (bucket & mask != 0)
+        if ((bucket & mask) != 0)
         {
             return bucket & ~mask;
         }
@@ -117,9 +117,10 @@ bool SO_Hashtable::remove(unsigned long key)
 optional<unsigned long> SO_Hashtable::find(unsigned long key)
 {
     auto bucket = key % this->bucket_num.load(memory_order_relaxed);
-    if (this->bucket_array->get_bucket(bucket) == nullptr)
+    auto bucket_node = this->bucket_array->get_bucket(bucket);
+    if (bucket_node == nullptr)
     {
-        this->init_bucket(bucket);
+        bucket_node = this->init_bucket(bucket);
     }
     return this->item_set.Contains(*this->bucket_array->get_bucket(bucket), so_regular_key(key));
 }
