@@ -161,3 +161,8 @@ BucketArray::BucketArray(LFNODE *first_bucket)
     (*first_arr)[0] = first_bucket;
     segments[0].store(first_arr, memory_order_relaxed);
 }
+
+void global_helper_thread_func()
+{
+    // TODO: 내부 Set을 돌며 새로 추가된 bucket의 dummy node를 각 numa node queue에 전달.
+}

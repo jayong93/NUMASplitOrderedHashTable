@@ -24,9 +24,10 @@ class LFNODE
 public:
     unsigned long key;
     unsigned long value;
+    bool is_new; // dummy node일 경우에만 의미가 있음.
     LFNODE *next;
 
-    LFNODE(unsigned long key, unsigned long value) : key{key}, next{nullptr}, value{value} {}
+    LFNODE(unsigned long key, unsigned long value) : key{ key }, next{ nullptr }, value{ value }, is_new{ true } {}
 
     LFNODE *GetNext()
     {

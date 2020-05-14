@@ -1,4 +1,3 @@
-#define LFSET_IMPL
 #include "lf_set.h"
 
 struct EpochNode
