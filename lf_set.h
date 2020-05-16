@@ -15,7 +15,7 @@
 
 using namespace std;
 
-constexpr unsigned MAX_THREAD = 64 + 1;
+constexpr unsigned MAX_THREAD = 64 + 4;
 constexpr uintptr_t WITH_MARK = -1;
 constexpr uintptr_t POINTER_ONLY = -2;
 
@@ -87,6 +87,7 @@ class LFSET
 
 public:
     LFSET();
+    ~LFSET();
     void Init();
     void Dump();
     bool Find(LFNODE &from, unsigned long x, LFNODE **pred, LFNODE **curr);

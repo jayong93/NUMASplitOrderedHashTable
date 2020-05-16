@@ -230,3 +230,7 @@ optional<unsigned long> LFSET::Contains(LFNODE &from, unsigned long x)
     end_op();
     return ret;
 }
+
+LFSET::~LFSET() {
+    this->Init();
+}

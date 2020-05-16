@@ -1,8 +1,10 @@
+#include <thread>
 #include "lf_set.h"
 #include "split_ordered.h"
 
-template<typename T>
-constexpr int width() {
+template <typename T>
+constexpr int width()
+{
     return sizeof(T) * 8;
 }
 
@@ -17,23 +19,30 @@ using namespace std;
 // lookup-table to store the reverse of each index of the table
 // The macro REVERSE_BITS generates the table
 static unsigned int lookup[256] = {REVERSE_BITS};
+static atomic_uint tid_counter{0};
+static thread_local unsigned tid = tid_counter.fetch_add(1, memory_order_relaxed);
+
+unsigned get_numa_id()
+{
+    return (tid / 8) % 4;
+}
 
 unsigned long reverse_bits(unsigned long num)
 {
     unsigned long result = 0;
-    for (auto i = 0; i < width<unsigned long>() / 8; ++i)
+    for (auto i = 0; i < sizeof(unsigned long); ++i)
     {
-        result |= lookup[(num >> (i * 8)) & 0xff] << ((width<unsigned long>() / 8 - 1 - i) * 8);
+        result |= (lookup[(num >> (i * 8)) & 0xff] << ((sizeof(unsigned long) - i - 1) * 8));
     }
     return result;
 }
 
-unsigned long so_dummy_key(unsigned long key)
+unsigned long so_regular_key(unsigned long key)
 {
     return reverse_bits(key | ((unsigned long)1 << (width<unsigned long>() - 1)));
 }
 
-unsigned long so_regular_key(unsigned long key)
+unsigned long so_dummy_key(unsigned long key)
 {
     return reverse_bits(key);
 }
@@ -87,23 +96,25 @@ void BucketArray::set_bucket(uintptr_t bucket, LFNODE *head)
     (*seg_ptr)[bucket % SEGMENT_SIZE] = head;
 }
 
-LFNODE* SO_Hashtable::init_bucket(uintptr_t bucket)
+LFNODE *SO_Hashtable::init_bucket(uintptr_t bucket)
 {
+    auto numa_idx = get_numa_id();
     auto parent = get_parent(bucket);
-    auto parent_node = this->bucket_array->get_bucket(parent);
+    auto parent_node = this->bucket_array[numa_idx]->get_bucket(parent);
     if (parent_node == nullptr)
     {
         parent_node = this->init_bucket(parent);
     }
     auto dummy = item_set.Add(*parent_node, so_dummy_key(bucket));
-    this->bucket_array->set_bucket(bucket, dummy);
+    this->bucket_array[numa_idx]->set_bucket(bucket, dummy);
     return dummy;
 }
 
 bool SO_Hashtable::remove(unsigned long key)
 {
+    auto numa_idx = get_numa_id();
     auto bucket = key % this->bucket_num.load(memory_order_relaxed);
-    auto bucket_node = this->bucket_array->get_bucket(bucket);
+    auto bucket_node = this->bucket_array[numa_idx]->get_bucket(bucket);
     if (bucket_node == nullptr)
     {
         bucket_node = this->init_bucket(bucket);
@@ -117,20 +128,22 @@ bool SO_Hashtable::remove(unsigned long key)
 
 optional<unsigned long> SO_Hashtable::find(unsigned long key)
 {
+    auto numa_idx = get_numa_id();
     auto bucket = key % this->bucket_num.load(memory_order_relaxed);
-    auto bucket_node = this->bucket_array->get_bucket(bucket);
+    auto bucket_node = this->bucket_array[numa_idx]->get_bucket(bucket);
     if (bucket_node == nullptr)
     {
         bucket_node = this->init_bucket(bucket);
     }
-    return this->item_set.Contains(*this->bucket_array->get_bucket(bucket), so_regular_key(key));
+    return this->item_set.Contains(*this->bucket_array[numa_idx]->get_bucket(bucket), so_regular_key(key));
 }
 
 bool SO_Hashtable::insert(unsigned long key, unsigned long value)
 {
+    auto numa_idx = get_numa_id();
     auto node = new LFNODE{so_regular_key(key), value};
     auto bucket = key % this->bucket_num.load(memory_order_relaxed);
-    auto bucket_node = this->bucket_array->get_bucket(bucket);
+    auto bucket_node = this->bucket_array[numa_idx]->get_bucket(bucket);
     if (bucket_node == nullptr)
     {
         bucket_node = this->init_bucket(bucket);
@@ -149,11 +162,21 @@ bool SO_Hashtable::insert(unsigned long key, unsigned long value)
     return true;
 }
 
-SO_Hashtable::SO_Hashtable() : bucket_num{2}, item_num{0}
+SO_Hashtable::SO_Hashtable() : bucket_num{2}, item_num{0}, bucket_array{4}, msg_queues{4} // 추후에 numa_num_configured_node() 로 교체
 {
     LFNODE *first_bucket = new LFNODE{0, 0};
+    first_bucket->is_new = false;
     item_set.Add(item_set.get_head(), *first_bucket);
-    bucket_array.reset(new BucketArray{first_bucket});
+    for (auto &node_bucket : bucket_array)
+    {
+        node_bucket.reset(new BucketArray{first_bucket}); // 추후에 numa_allocate_node() 로 교체
+    }
+    for (auto &queue : msg_queues)
+    {
+        queue.reset(new SPSCQueue<BucketNotification>); // 추후에 numa_allocate_node() 로 교체
+    }
+    std::thread global_helper{global_helper_thread_func, &this->item_set, &this->msg_queues};
+    global_helper.detach();
 }
 
 BucketArray::BucketArray(LFNODE *first_bucket)
@@ -163,12 +186,24 @@ BucketArray::BucketArray(LFNODE *first_bucket)
     segments[0].store(first_arr, memory_order_relaxed);
 }
 
-void global_helper_thread_func(LFSET* set)
+void global_helper_thread_func(LFSET *set, std::vector<std::unique_ptr<SPSCQueue<BucketNotification>>> *queues)
 {
-    start_op();
-    LFNODE* curr = set->get_head().GetNext();
-    while (curr != nullptr) {
-        curr = curr->GetNext();
+    while (true)
+    {
+        start_op();
+        LFNODE *curr = set->get_head().GetNext();
+        while (curr != nullptr)
+        {
+            if ((curr->key & 1) == 0 && curr->is_new)
+            {
+                uintptr_t idx = reverse_bits(curr->key);
+                for (auto &queue : *queues)
+                {
+                    queue->emplace(idx, curr);
+                }
+            }
+            curr = curr->GetNext();
+        }
+        end_op();
     }
-    end_op();
 }
