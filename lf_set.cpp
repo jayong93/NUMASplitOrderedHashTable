@@ -11,11 +11,11 @@ struct EpochNode
 static atomic_ullong g_epoch{0};
 static atomic_ullong t_epochs[MAX_THREAD];
 thread_local vector<EpochNode> retired_list;
-thread_local unsigned counter;
+thread_local unsigned counter{0};
 constexpr unsigned epoch_freq = 100;
 constexpr unsigned empty_freq = 1000;
 static atomic_ullong tid_counter{0};
-thread_local unsigned tid;
+thread_local unsigned tid = tid_counter.fetch_add(1, memory_order_relaxed);
 
 void retire(LFNODE *node)
 {

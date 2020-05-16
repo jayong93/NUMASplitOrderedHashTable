@@ -15,7 +15,7 @@
 
 using namespace std;
 
-constexpr unsigned MAX_THREAD = 64;
+constexpr unsigned MAX_THREAD = 64 + 1;
 constexpr uintptr_t WITH_MARK = -1;
 constexpr uintptr_t POINTER_ONLY = -2;
 
@@ -98,4 +98,7 @@ public:
     optional<unsigned long> Contains(LFNODE &from, unsigned long x);
     LFNODE& get_head() {return head;}
 };
+
+void start_op();
+void end_op();
 #endif /* CDC7572F_E1AD_4B7D_B182_4CA81AA68BB4 */

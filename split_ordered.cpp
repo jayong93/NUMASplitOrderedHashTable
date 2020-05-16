@@ -1,3 +1,4 @@
+#include "lf_set.h"
 #include "split_ordered.h"
 
 template<typename T>
@@ -162,7 +163,12 @@ BucketArray::BucketArray(LFNODE *first_bucket)
     segments[0].store(first_arr, memory_order_relaxed);
 }
 
-void global_helper_thread_func()
+void global_helper_thread_func(LFSET* set)
 {
-    // TODO: 내부 Set을 돌며 새로 추가된 bucket의 dummy node를 각 numa node queue에 전달.
+    start_op();
+    LFNODE* curr = set->get_head().GetNext();
+    while (curr != nullptr) {
+        curr = curr->GetNext();
+    }
+    end_op();
 }
