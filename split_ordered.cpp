@@ -30,7 +30,7 @@ unsigned long reverse_bits(unsigned long num)
 
 unsigned long so_dummy_key(unsigned long key)
 {
-    return reverse_bits(key | (1 << (width<unsigned long>() - 1)));
+    return reverse_bits(key | ((unsigned long)1 << (width<unsigned long>() - 1)));
 }
 
 unsigned long so_regular_key(unsigned long key)
@@ -40,7 +40,7 @@ unsigned long so_regular_key(unsigned long key)
 
 uintptr_t get_parent(uintptr_t bucket)
 {
-    auto mask = 1 << (width<uintptr_t>() - 1);
+    auto mask = (unsigned long)1 << (width<uintptr_t>() - 1);
     for (auto i = 0; i < width<uintptr_t>(); ++i)
     {
         if ((bucket & mask) != 0)
