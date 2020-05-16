@@ -6,3 +6,11 @@
 /.vs
 /.vscode
 /out/build/x64-Debug
+*.vcxproj
+*.user
+*.obj
+*.pdb
+*.filters
+*.sln
+*.log
+*.tlog
