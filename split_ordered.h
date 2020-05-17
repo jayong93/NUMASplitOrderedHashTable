@@ -5,6 +5,7 @@
 #include <atomic>
 #include <memory>
 #include <vector>
+#include <numa.h>
 #include "lf_set.h"
 #include "SPSCQueue.h"
 
@@ -32,16 +33,17 @@ class SO_Hashtable
 {
 public:
     SO_Hashtable();
+    ~SO_Hashtable();
     bool remove(unsigned long key);
     optional<unsigned long> find(unsigned long key);
     bool insert(unsigned long key, unsigned long value);
 
 private:
-    atomic_uintptr_t bucket_num{2};
+    std::vector<atomic_uintptr_t*> bucket_nums;
     atomic_uintptr_t item_num{0};
     LFSET item_set;
-    std::vector<std::unique_ptr<BucketArray>> bucket_array;
-    std::vector<std::unique_ptr<SPSCQueue<BucketNotification>>> msg_queues;
+    std::vector<BucketArray*> bucket_array;
+    std::vector<SPSCQueue<BucketNotification>*> msg_queues;
 
     LFNODE *init_bucket(uintptr_t bucket);
 

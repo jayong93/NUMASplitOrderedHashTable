@@ -7,11 +7,10 @@
 #include <algorithm>
 #include <stdexcept>
 
-template <typename T>
+template <class T>
 struct QueueNode {
-	QueueNode<T>() = default;
-	QueueNode<T>(const T& val) : value{ val } {}
-	QueueNode<T>(T&& val) : value{ std::move(val) } {}
+	template <typename... Param>
+	QueueNode<T>(Param&&... args) : value{ std::forward<Param>(args)... } {}
 
 	T value;
 	std::atomic<QueueNode<T>*> next = nullptr;
@@ -99,7 +98,7 @@ inline T& SPSCQueue<T>::peek()
 */
 
 template <typename T>
-// Multi-Producer, Single-Consumer Queue
+// Single-Producer, Single-Consumer Queue
 struct SPSCQueue {
 private:
 	QueueNode<T>* volatile head;
