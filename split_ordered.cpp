@@ -181,13 +181,17 @@ void global_helper_thread_func(LFSET *set, std::vector<std::unique_ptr<SPSCQueue
             curr = curr->GetNext();
         }
         end_op();
+        std::this_thread::sleep_for(1ms);
     }
 }
 
-void local_helper_thread_fun(unsigned node_idx, SPSCQueue<BucketNotification> *queue, BucketArray *bucket_arr) {
-    while (true) {
+void local_helper_thread_fun(SPSCQueue<BucketNotification> *queue, BucketArray *bucket_arr)
+{
+    while (true)
+    {
         auto bucket_noti = queue->deq();
-        if (!bucket_noti) {
+        if (!bucket_noti)
+        {
             std::this_thread::sleep_for(1ms);
             continue;
         }
@@ -208,8 +212,11 @@ SO_Hashtable::SO_Hashtable() : bucket_num{2}, item_num{0}, bucket_array{4}, msg_
     {
         queue.reset(new SPSCQueue<BucketNotification>); // 추후에 numa_allocate_node() 로 교체
     }
-    std::thread global_helper{global_helper_thread_func, &this->item_set, &this->msg_queues};
-    global_helper.detach();
+    this->global_helper = std::thread{global_helper_thread_func, &this->item_set, &this->msg_queues};
+    for (auto i = 0; i < 4; ++i) // 추후에 numa_num_configured_node()로 교체
+    {
+        this->local_helpers[i] = std::thread{local_helper_thread_fun, this->msg_queues[i].get(), bucket_array[i].get()};
+    }
 }
 
 BucketArray::BucketArray(LFNODE *first_bucket)

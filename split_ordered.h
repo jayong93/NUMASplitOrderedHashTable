@@ -44,6 +44,9 @@ private:
     std::vector<std::unique_ptr<SPSCQueue<BucketNotification>>> msg_queues;
 
     LFNODE *init_bucket(uintptr_t bucket);
+
+    std::thread global_helper;
+    std::vector<std::thread> local_helpers;
 };
 
 #endif /* ADDE381D_44C2_4BEC_A967_FE5043D7D5B2 */
