@@ -42,7 +42,8 @@ static thread_local unsigned tid = tid_counter.fetch_add(1, memory_order_relaxed
 
 unsigned get_numa_id()
 {
-    return (tid / CPU_NUM) % NUMA_NODE_NUM;
+    const auto core_num_per_node = CPU_NUM / NUMA_NODE_NUM;
+    return (tid / core_num_per_node) % NUMA_NODE_NUM;
 }
 
 unsigned long reverse_bits(unsigned long num)
@@ -199,19 +200,23 @@ void global_helper_thread_func(LFSET *set, std::vector<SPSCQueue<BucketNotificat
             curr = curr->GetNext();
         }
         end_op();
-        std::this_thread::sleep_for(1ms);
+        std::this_thread::sleep_for(100ms);
     }
 }
 
 void local_helper_thread_fun(unsigned numa_idx, SPSCQueue<BucketNotification> *queue, BucketArray *bucket_arr)
 {
-    numa_run_on_node(numa_idx);
+    if (-1 == numa_run_on_node(numa_idx))
+    {
+        fprintf(stderr, "Can't bind local helper thread to node #%d\n", numa_idx);
+        exit(-1);
+    }
     while (true)
     {
         auto bucket_noti = queue->deq();
         if (!bucket_noti)
         {
-            std::this_thread::sleep_for(1ms);
+            std::this_thread::sleep_for(10ms);
             continue;
         }
         bucket_arr->set_bucket(bucket_noti->bucket_idx, bucket_noti->dummy_node);
@@ -255,5 +260,9 @@ SO_Hashtable::~SO_Hashtable()
 }
 
 void pin_thread() {
-    numa_run_on_node(get_numa_id());   
+    if (-1 == numa_run_on_node(get_numa_id()))
+    {
+        fprintf(stderr, "Can't bind thread #%d to node #%d\n", tid, get_numa_id());
+        exit(-1);
+    }
 }
