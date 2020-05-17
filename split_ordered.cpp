@@ -162,6 +162,39 @@ bool SO_Hashtable::insert(unsigned long key, unsigned long value)
     return true;
 }
 
+void global_helper_thread_func(LFSET *set, std::vector<std::unique_ptr<SPSCQueue<BucketNotification>>> *queues)
+{
+    while (true)
+    {
+        start_op();
+        LFNODE *curr = set->get_head().GetNext();
+        while (curr != nullptr)
+        {
+            if ((curr->key & 1) == 0 && curr->is_new)
+            {
+                uintptr_t idx = reverse_bits(curr->key);
+                for (auto &queue : *queues)
+                {
+                    queue->emplace(idx, curr);
+                }
+            }
+            curr = curr->GetNext();
+        }
+        end_op();
+    }
+}
+
+void local_helper_thread_fun(unsigned node_idx, SPSCQueue<BucketNotification> *queue, BucketArray *bucket_arr) {
+    while (true) {
+        auto bucket_noti = queue->deq();
+        if (!bucket_noti) {
+            std::this_thread::sleep_for(1ms);
+            continue;
+        }
+        bucket_arr->set_bucket(bucket_noti->bucket_idx, bucket_noti->dummy_node);
+    }
+}
+
 SO_Hashtable::SO_Hashtable() : bucket_num{2}, item_num{0}, bucket_array{4}, msg_queues{4} // 추후에 numa_num_configured_node() 로 교체
 {
     LFNODE *first_bucket = new LFNODE{0, 0};
@@ -184,26 +217,4 @@ BucketArray::BucketArray(LFNODE *first_bucket)
     auto first_arr = new array<LFNODE *, SEGMENT_SIZE>;
     (*first_arr)[0] = first_bucket;
     segments[0].store(first_arr, memory_order_relaxed);
-}
-
-void global_helper_thread_func(LFSET *set, std::vector<std::unique_ptr<SPSCQueue<BucketNotification>>> *queues)
-{
-    while (true)
-    {
-        start_op();
-        LFNODE *curr = set->get_head().GetNext();
-        while (curr != nullptr)
-        {
-            if ((curr->key & 1) == 0 && curr->is_new)
-            {
-                uintptr_t idx = reverse_bits(curr->key);
-                for (auto &queue : *queues)
-                {
-                    queue->emplace(idx, curr);
-                }
-            }
-            curr = curr->GetNext();
-        }
-        end_op();
-    }
 }

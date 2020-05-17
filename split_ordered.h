@@ -46,5 +46,4 @@ private:
     LFNODE *init_bucket(uintptr_t bucket);
 };
 
-void global_helper_thread_func(LFSET *set, std::vector<std::unique_ptr<SPSCQueue<BucketNotification>>> *queues);
 #endif /* ADDE381D_44C2_4BEC_A967_FE5043D7D5B2 */
