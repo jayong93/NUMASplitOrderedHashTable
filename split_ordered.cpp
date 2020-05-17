@@ -36,9 +36,10 @@ using namespace std;
 
 // lookup-table to store the reverse of each index of the table
 // The macro REVERSE_BITS generates the table
-static unsigned int lookup[256] = {REVERSE_BITS};
+static unsigned long lookup[256] = {REVERSE_BITS};
 static atomic_uint tid_counter{0};
 static thread_local unsigned tid = tid_counter.fetch_add(1, memory_order_relaxed);
+constexpr unsigned long KEY_MASK = ((unsigned long)1 << (width<unsigned long>() - 1));
 
 unsigned get_numa_id()
 {
@@ -49,7 +50,7 @@ unsigned get_numa_id()
 unsigned long reverse_bits(unsigned long num)
 {
     unsigned long result = 0;
-    for (auto i = 0; i < sizeof(unsigned long); ++i)
+    for (unsigned long i = 0; i < sizeof(unsigned long); ++i)
     {
         result |= (lookup[(num >> (i * 8)) & 0xff] << ((sizeof(unsigned long) - i - 1) * 8));
     }
@@ -58,7 +59,7 @@ unsigned long reverse_bits(unsigned long num)
 
 unsigned long so_regular_key(unsigned long key)
 {
-    return reverse_bits(key | ((unsigned long)1 << (width<unsigned long>() - 1)));
+    return reverse_bits(key | KEY_MASK);
 }
 
 unsigned long so_dummy_key(unsigned long key)
@@ -141,7 +142,6 @@ bool SO_Hashtable::remove(unsigned long key)
     if (false == this->item_set.Remove(*bucket_node, so_regular_key(key)))
         return false;
 
-    this->item_num.fetch_sub(1, memory_order_relaxed);
     return true;
 }
 
@@ -172,12 +172,6 @@ bool SO_Hashtable::insert(unsigned long key, unsigned long value)
         delete node;
         return false;
     }
-
-    auto curr_size = this->bucket_nums[numa_idx]->load(memory_order_relaxed);
-    if ((this->item_num.fetch_add(1, memory_order_relaxed) + 1) / curr_size > LOAD_FACTOR)
-    {
-        this->bucket_nums[numa_idx]->compare_exchange_strong(curr_size, curr_size * 2);
-    }
     return true;
 }
 
@@ -185,26 +179,38 @@ void global_helper_thread_func(LFSET *set, std::vector<SPSCQueue<BucketNotificat
 {
     while (true)
     {
+        uintptr_t size = 0;
         start_op();
-        LFNODE *curr = set->get_head().GetNext();
+        LFNODE *prev = &set->get_head();
+        LFNODE *curr = prev->GetNext();
         while (curr != nullptr)
         {
-            if ((curr->key & 1) == 0 && curr->is_new)
+            if ((curr->key & 0x1) == 0)
             {
-                uintptr_t idx = reverse_bits(curr->key);
-                for (auto &queue : *queues)
+                if (curr->is_new)
                 {
-                    queue->emplace(idx, curr);
+                    curr->is_new = false;
+                    uintptr_t idx = reverse_bits(curr->key);
+                    for (auto &queue : *queues)
+                    {
+                        queue->emplace(idx, curr);
+                    }
                 }
+            } else if (!curr->IsMarked()) {
+                size += 1;
             }
+            prev = curr;
             curr = curr->GetNext();
         }
+        for(auto &queue : *queues) {
+            queue->emplace(size, nullptr);
+        }
         end_op();
-        std::this_thread::sleep_for(100ms);
+        std::this_thread::sleep_for(1ms);
     }
 }
 
-void local_helper_thread_fun(unsigned numa_idx, SPSCQueue<BucketNotification> *queue, BucketArray *bucket_arr)
+void local_helper_thread_fun(unsigned numa_idx, SPSCQueue<BucketNotification> *queue, BucketArray *bucket_arr, atomic_uintptr_t *bucket_num, atomic_uintptr_t *item_num)
 {
     if (-1 == numa_run_on_node(numa_idx))
     {
@@ -216,14 +222,27 @@ void local_helper_thread_fun(unsigned numa_idx, SPSCQueue<BucketNotification> *q
         auto bucket_noti = queue->deq();
         if (!bucket_noti)
         {
-            std::this_thread::sleep_for(10ms);
+            std::this_thread::sleep_for(1ms);
             continue;
         }
-        bucket_arr->set_bucket(bucket_noti->bucket_idx, bucket_noti->dummy_node);
+
+        if (bucket_noti->node == nullptr)
+        {
+            auto new_item_num = bucket_noti->org_key;
+            item_num->store(new_item_num, memory_order_relaxed);
+            const auto old_bucket_num = bucket_num->load(memory_order_relaxed);
+            if (new_item_num / old_bucket_num >= LOAD_FACTOR) {
+                bucket_num->store(old_bucket_num * 2);
+            }
+        }
+        else if ((bucket_noti->org_key & KEY_MASK) == 0)
+        {
+            bucket_arr->set_bucket(bucket_noti->org_key, bucket_noti->node);
+        }
     }
 }
 
-SO_Hashtable::SO_Hashtable() : item_num{0}
+SO_Hashtable::SO_Hashtable()
 {
     const auto numa_node_num = numa_num_configured_nodes();
     LFNODE *first_bucket = new LFNODE{0, 0};
@@ -232,13 +251,14 @@ SO_Hashtable::SO_Hashtable() : item_num{0}
     for (auto i = 0; i < numa_node_num; ++i)
     {
         bucket_array.push_back(NUMA_alloc<BucketArray>(i, first_bucket));
-        msg_queues.push_back( NUMA_alloc<SPSCQueue<BucketNotification>>(i));
+        msg_queues.push_back(NUMA_alloc<SPSCQueue<BucketNotification>>(i));
         bucket_nums.push_back(NUMA_alloc<atomic_uintptr_t>(i, 2));
+        item_nums.push_back(NUMA_alloc<atomic_uintptr_t>(i, 0));
     }
     this->global_helper = std::thread{global_helper_thread_func, &this->item_set, &this->msg_queues};
     for (auto i = 0; i < numa_node_num; ++i)
     {
-        this->local_helpers.emplace_back(local_helper_thread_fun, i, this->msg_queues[i], bucket_array[i]);
+        this->local_helpers.emplace_back(local_helper_thread_fun, i, this->msg_queues[i], bucket_array[i], bucket_nums[i], item_nums[i]);
     }
 }
 
@@ -259,7 +279,8 @@ SO_Hashtable::~SO_Hashtable()
     }
 }
 
-void pin_thread() {
+void pin_thread()
+{
     if (-1 == numa_run_on_node(get_numa_id()))
     {
         fprintf(stderr, "Can't bind thread #%d to node #%d\n", tid, get_numa_id());

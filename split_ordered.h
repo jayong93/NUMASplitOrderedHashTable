@@ -25,8 +25,8 @@ struct BucketArray
 
 struct BucketNotification
 {
-    uintptr_t bucket_idx;
-    LFNODE *dummy_node;
+    uintptr_t org_key;
+    LFNODE *node;
 };
 
 class SO_Hashtable
@@ -40,7 +40,7 @@ public:
 
 private:
     std::vector<atomic_uintptr_t*> bucket_nums;
-    atomic_uintptr_t item_num{0};
+    std::vector<atomic_uintptr_t*> item_nums;
     LFSET item_set;
     std::vector<BucketArray*> bucket_array;
     std::vector<SPSCQueue<BucketNotification>*> msg_queues;
