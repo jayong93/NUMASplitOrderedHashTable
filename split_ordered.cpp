@@ -246,15 +246,14 @@ BucketArray::BucketArray(LFNODE *first_bucket)
 
 SO_Hashtable::~SO_Hashtable()
 {
-    global_helper.detach();
-    for(auto& helper:local_helpers)
-    {
-        helper.detach();
-    }
     for (auto i = 0; i < NUMA_NODE_NUM; ++i)
     {
         NUMA_dealloc(bucket_array[i]);
         NUMA_dealloc(bucket_nums[i]);
         NUMA_dealloc(msg_queues[i]);
     }
+}
+
+void pin_thread() {
+    numa_run_on_node(get_numa_id());   
 }

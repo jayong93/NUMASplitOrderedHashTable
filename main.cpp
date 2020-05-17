@@ -27,6 +27,7 @@ unsigned long fast_rand(void)
 
 void benchmark(int num_thread)
 {
+    pin_thread();
     for (int i = 0; i < NUM_TEST / num_thread; ++i)
     {
         //	if (0 == i % 100000) cout << ".";

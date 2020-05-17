@@ -51,4 +51,6 @@ private:
     std::vector<std::thread> local_helpers;
 };
 
+void pin_thread();
+
 #endif /* ADDE381D_44C2_4BEC_A967_FE5043D7D5B2 */
