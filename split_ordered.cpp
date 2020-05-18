@@ -1,3 +1,4 @@
+#include <numa.h>
 #include "split_ordered.h"
 
 template<typename T>
@@ -16,6 +17,8 @@ using namespace std;
 // lookup-table to store the reverse of each index of the table
 // The macro REVERSE_BITS generates the table
 static unsigned long lookup[256] = {REVERSE_BITS};
+static atomic_uint tid_counter{0};
+static thread_local unsigned tid = tid_counter.fetch_add(1, memory_order_relaxed);
 
 unsigned long reverse_bits(unsigned long num)
 {
@@ -160,4 +163,8 @@ BucketArray::BucketArray(LFNODE *first_bucket)
     auto first_arr = new array<LFNODE *, SEGMENT_SIZE>;
     (*first_arr)[0] = first_bucket;
     segments[0].store(first_arr, memory_order_relaxed);
+}
+
+void pin_thread() {
+    numa_run_on_node((tid / 8) % 4);
 }
