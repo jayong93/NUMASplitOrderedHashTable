@@ -71,5 +71,5 @@ int main(int argc, char *argv[])
     auto du = high_resolution_clock::now() - start_t;
 
     cout << num_thread << " Threads,  Time = ";
-    cout << duration_cast<milliseconds>(du).count() << " ms\n";
+    cout << duration_cast<milliseconds>(du).count() << " ms" << endl;
 }
