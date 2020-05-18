@@ -271,6 +271,10 @@ BucketArray::BucketArray(LFNODE *first_bucket)
 
 SO_Hashtable::~SO_Hashtable()
 {
+    global_helper.~thread();
+    for(auto& helper : local_helpers) {
+        helper.~thread();
+    }
     for (auto i = 0; i < NUMA_NODE_NUM; ++i)
     {
         NUMA_dealloc(bucket_array[i]);
