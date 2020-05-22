@@ -2,7 +2,7 @@
 #include "lf_set.h"
 #include "split_ordered.h"
 static const int NUM_TEST = 4'000'000;
-static const int RANGE = 1'000;
+//static const int RANGE = 1'000;
 
 using namespace std;
 using namespace chrono;
@@ -34,13 +34,13 @@ void benchmark(int num_thread)
         switch (fast_rand() % 3)
         {
         case 0:
-            my_table.insert(fast_rand() % RANGE, fast_rand());
+            my_table.insert(fast_rand(), fast_rand());
             break;
         case 1:
-            my_table.remove(fast_rand() % RANGE);
+            my_table.remove(fast_rand());
             break;
         case 2:
-            my_table.find(fast_rand() % RANGE);
+            my_table.find(fast_rand());
             break;
         default:
             cout << "ERROR!!!\n";

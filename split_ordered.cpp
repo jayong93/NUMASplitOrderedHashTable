@@ -3,7 +3,8 @@
 #include "split_ordered.h"
 
 static const unsigned NUMA_NODE_NUM = numa_num_configured_nodes();
-static const unsigned CPU_NUM = numa_num_configured_cpus();
+static const unsigned CPU_NUM = numa_num_configured_cpus()/2;
+static const unsigned CORE_PER_NODE = CPU_NUM/NUMA_NODE_NUM;
 
 template <typename T, typename... Vals>
 T *NUMA_alloc(unsigned numa_id, Vals &&... val)
@@ -39,13 +40,8 @@ using namespace std;
 static unsigned long lookup[256] = {REVERSE_BITS};
 static atomic_uint tid_counter{0};
 static thread_local unsigned tid = tid_counter.fetch_add(1, memory_order_relaxed);
+static thread_local const unsigned numa_id = (tid/CORE_PER_NODE) % NUMA_NODE_NUM;
 constexpr unsigned long KEY_MASK = ((unsigned long)1 << (width<unsigned long>() - 1));
-
-unsigned get_numa_id()
-{
-    const auto core_num_per_node = CPU_NUM / NUMA_NODE_NUM;
-    return (tid / core_num_per_node) % NUMA_NODE_NUM;
-}
 
 unsigned long reverse_bits(unsigned long num)
 {
@@ -118,23 +114,21 @@ void BucketArray::set_bucket(uintptr_t bucket, LFNODE *head)
 
 LFNODE *SO_Hashtable::init_bucket(uintptr_t bucket)
 {
-    auto numa_idx = get_numa_id();
     auto parent = get_parent(bucket);
-    auto parent_node = this->bucket_array[numa_idx]->get_bucket(parent);
+    auto parent_node = this->bucket_array[numa_id]->get_bucket(parent);
     if (parent_node == nullptr)
     {
         parent_node = this->init_bucket(parent);
     }
     auto dummy = item_set.Add(*parent_node, so_dummy_key(bucket));
-    this->bucket_array[numa_idx]->set_bucket(bucket, dummy);
+    this->bucket_array[numa_id]->set_bucket(bucket, dummy);
     return dummy;
 }
 
 bool SO_Hashtable::remove(unsigned long key)
 {
-    auto numa_idx = get_numa_id();
-    auto bucket = key % this->bucket_nums[numa_idx]->load(memory_order_relaxed);
-    auto bucket_node = this->bucket_array[numa_idx]->get_bucket(bucket);
+    auto bucket = key % this->bucket_nums[numa_id]->load(memory_order_relaxed);
+    auto bucket_node = this->bucket_array[numa_id]->get_bucket(bucket);
     if (bucket_node == nullptr)
     {
         bucket_node = this->init_bucket(bucket);
@@ -147,22 +141,20 @@ bool SO_Hashtable::remove(unsigned long key)
 
 optional<unsigned long> SO_Hashtable::find(unsigned long key)
 {
-    auto numa_idx = get_numa_id();
-    auto bucket = key % this->bucket_nums[numa_idx]->load(memory_order_relaxed);
-    auto bucket_node = this->bucket_array[numa_idx]->get_bucket(bucket);
+    auto bucket = key % this->bucket_nums[numa_id]->load(memory_order_relaxed);
+    auto bucket_node = this->bucket_array[numa_id]->get_bucket(bucket);
     if (bucket_node == nullptr)
     {
         bucket_node = this->init_bucket(bucket);
     }
-    return this->item_set.Contains(*this->bucket_array[numa_idx]->get_bucket(bucket), so_regular_key(key));
+    return this->item_set.Contains(*this->bucket_array[numa_id]->get_bucket(bucket), so_regular_key(key));
 }
 
 bool SO_Hashtable::insert(unsigned long key, unsigned long value)
 {
-    auto numa_idx = get_numa_id();
     auto node = new LFNODE{so_regular_key(key), value};
-    auto bucket = key % this->bucket_nums[numa_idx]->load(memory_order_relaxed);
-    auto bucket_node = this->bucket_array[numa_idx]->get_bucket(bucket);
+    auto bucket = key % this->bucket_nums[numa_id]->load(memory_order_relaxed);
+    auto bucket_node = this->bucket_array[numa_id]->get_bucket(bucket);
     if (bucket_node == nullptr)
     {
         bucket_node = this->init_bucket(bucket);
@@ -285,9 +277,9 @@ SO_Hashtable::~SO_Hashtable()
 
 void pin_thread()
 {
-    if (-1 == numa_run_on_node(get_numa_id()))
+    if (-1 == numa_run_on_node(numa_id))
     {
-        fprintf(stderr, "Can't bind thread #%d to node #%d\n", tid, get_numa_id());
+        fprintf(stderr, "Can't bind thread #%d to node #%d\n", tid, numa_id);
         exit(-1);
     }
 }
