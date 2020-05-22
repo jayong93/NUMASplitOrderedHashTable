@@ -114,21 +114,25 @@ void BucketArray::set_bucket(uintptr_t bucket, LFNODE *head)
 
 LFNODE *SO_Hashtable::init_bucket(uintptr_t bucket)
 {
+    auto bucket_arr = get_bucket_array();
     auto parent = get_parent(bucket);
-    auto parent_node = this->bucket_array[numa_id]->get_bucket(parent);
+    auto parent_node = bucket_arr->get_bucket(parent);
     if (parent_node == nullptr)
     {
         parent_node = this->init_bucket(parent);
     }
     auto dummy = item_set.Add(*parent_node, so_dummy_key(bucket));
-    this->bucket_array[numa_id]->set_bucket(bucket, dummy);
+    bucket_arr->set_bucket(bucket, dummy);
     return dummy;
 }
 
 bool SO_Hashtable::remove(unsigned long key)
 {
-    auto bucket = key % this->bucket_nums[numa_id]->load(memory_order_relaxed);
-    auto bucket_node = this->bucket_array[numa_id]->get_bucket(bucket);
+    auto bucket_arr = get_bucket_array();
+    auto bucket_num = get_bucket_num();
+
+    auto bucket = key % bucket_num->load(memory_order_relaxed);
+    auto bucket_node = bucket_arr->get_bucket(bucket);
     if (bucket_node == nullptr)
     {
         bucket_node = this->init_bucket(bucket);
@@ -141,8 +145,11 @@ bool SO_Hashtable::remove(unsigned long key)
 
 optional<unsigned long> SO_Hashtable::find(unsigned long key)
 {
-    auto bucket = key % this->bucket_nums[numa_id]->load(memory_order_relaxed);
-    auto bucket_node = this->bucket_array[numa_id]->get_bucket(bucket);
+    auto bucket_arr = get_bucket_array();
+    auto bucket_num = get_bucket_num();
+
+    auto bucket = key % bucket_num->load(memory_order_relaxed);
+    auto bucket_node = bucket_arr->get_bucket(bucket);
     if (bucket_node == nullptr)
     {
         bucket_node = this->init_bucket(bucket);
@@ -152,9 +159,12 @@ optional<unsigned long> SO_Hashtable::find(unsigned long key)
 
 bool SO_Hashtable::insert(unsigned long key, unsigned long value)
 {
+    auto bucket_arr = get_bucket_array();
+    auto bucket_num = get_bucket_num();
+
     auto node = new LFNODE{so_regular_key(key), value};
-    auto bucket = key % this->bucket_nums[numa_id]->load(memory_order_relaxed);
-    auto bucket_node = this->bucket_array[numa_id]->get_bucket(bucket);
+    auto bucket = key % bucket_num->load(memory_order_relaxed);
+    auto bucket_node = bucket_arr->get_bucket(bucket);
     if (bucket_node == nullptr)
     {
         bucket_node = this->init_bucket(bucket);
@@ -273,6 +283,16 @@ SO_Hashtable::~SO_Hashtable()
         NUMA_dealloc(bucket_nums[i]);
         NUMA_dealloc(msg_queues[i]);
     }
+}
+
+BucketArray* SO_Hashtable::get_bucket_array() {
+   static thread_local BucketArray* local_bucket = this->bucket_array[numa_id];
+   return local_bucket;
+}
+
+atomic_uintptr_t* SO_Hashtable::get_bucket_num() {
+   static thread_local atomic_uintptr_t* local_bucket_num = this->bucket_nums[numa_id];
+   return local_bucket_num;
 }
 
 void pin_thread()

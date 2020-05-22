@@ -49,6 +49,9 @@ private:
 
     std::thread global_helper;
     std::vector<std::thread> local_helpers;
+
+    BucketArray* get_bucket_array();
+    atomic_uintptr_t* get_bucket_num();
 };
 
 void pin_thread();
