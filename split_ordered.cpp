@@ -208,7 +208,7 @@ void global_helper_thread_func(LFSET *set, std::vector<SPSCQueue<BucketNotificat
             queue->emplace(size, nullptr);
         }
         end_op();
-        std::this_thread::sleep_for(1ms);
+        //std::this_thread::sleep_for(1ms);
     }
 }
 
@@ -224,7 +224,7 @@ void local_helper_thread_fun(unsigned numa_idx, SPSCQueue<BucketNotification> *q
         auto bucket_noti = queue->deq();
         if (!bucket_noti)
         {
-            std::this_thread::sleep_for(1ms);
+            //std::this_thread::sleep_for(1ms);
             continue;
         }
 
