@@ -4,6 +4,10 @@
 static const int NUM_TEST = 4'000'000;
 //static const int RANGE = 1'000;
 
+#ifndef WRITE_RATIO
+#define WRITE_RATIO 30
+#endif
+
 using namespace std;
 using namespace chrono;
 
@@ -30,21 +34,16 @@ void benchmark(int num_thread)
     pin_thread();
     for (int i = 0; i < NUM_TEST / num_thread; ++i)
     {
-        //	if (0 == i % 100000) cout << ".";
-        switch (fast_rand() % 3)
-        {
-        case 0:
-            my_table.insert(fast_rand(), fast_rand());
-            break;
-        case 1:
-            my_table.remove(fast_rand());
-            break;
-        case 2:
+        if (fast_rand() % 100 < WRITE_RATIO) {
+            if (fast_rand() % 100 < 50) {
+                my_table.insert(fast_rand(), fast_rand());
+            }
+            else {
+                my_table.remove(fast_rand());
+            }
+        }
+        else {
             my_table.find(fast_rand());
-            break;
-        default:
-            cout << "ERROR!!!\n";
-            exit(-1);
         }
     }
 }

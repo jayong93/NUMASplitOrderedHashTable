@@ -13,8 +13,12 @@ set(SRC_FILES
 if (NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
+if (NOT WRITE_RATIO)
+    set(WRITE_RATIO 30)
+endif()
 
 add_compile_options(-g -ggdb -std=c++17)
+add_definitions(-DWRITE_RATIO=${WRITE_RATIO})
 link_libraries(pthread numa)
 set(CMAKE_CXX_COMPILER "g++")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY bin)
