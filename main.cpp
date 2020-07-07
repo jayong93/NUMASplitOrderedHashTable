@@ -1,8 +1,12 @@
+#include <iostream>
 #include <chrono>
-#include "lf_set.h"
+#include <vector>
+#include <thread>
+#include <tbb/concurrent_hash_map.h>
 #include "split_ordered.h"
 static const int NUM_TEST = 4'000'000;
 //static const int RANGE = 1'000;
+constexpr unsigned MAX_THREAD = 64;
 
 #ifndef WRITE_RATIO
 #define WRITE_RATIO 30
@@ -11,7 +15,7 @@ static const int NUM_TEST = 4'000'000;
 using namespace std;
 using namespace chrono;
 
-SO_Hashtable my_table;
+tbb::concurrent_hash_map<unsigned long, unsigned long> my_table;
 
 unsigned long fast_rand(void)
 { //period 2^96-1
@@ -29,6 +33,8 @@ unsigned long fast_rand(void)
     return z;
 }
 
+
+
 void benchmark(int num_thread)
 {
     pin_thread();
@@ -36,14 +42,18 @@ void benchmark(int num_thread)
     {
         if (fast_rand() % 100 < WRITE_RATIO) {
             if (fast_rand() % 100 < 50) {
-                my_table.insert(fast_rand(), fast_rand());
+                tbb::concurrent_hash_map<unsigned long, unsigned long>::accessor a;
+                if (my_table.insert(a, fast_rand())) {
+                    a->second = fast_rand();
+                }
             }
             else {
-                my_table.remove(fast_rand());
+                my_table.erase(fast_rand());
             }
         }
         else {
-            my_table.find(fast_rand());
+            tbb::concurrent_hash_map<unsigned long, unsigned long>::const_accessor a;
+            my_table.find(a, fast_rand());
         }
     }
 }

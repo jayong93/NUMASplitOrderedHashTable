@@ -1,12 +1,11 @@
 cmake_minimum_required(VERSION 3.10)
 
-project("SplitOrdered_Hashtable")
+project("tbb_test")
 set(CMAKE_VERBOSE_MAKEFILE true)
 
 set(OUTPUT_NAME "${CMAKE_PROJECT_NAME}")
 set(SRC_FILES
     main.cpp
-    lf_set.cpp
     split_ordered.cpp
     )
 
@@ -19,7 +18,7 @@ endif()
 
 add_compile_options(-g -ggdb -std=c++17)
 add_definitions(-DWRITE_RATIO=${WRITE_RATIO})
-link_libraries(pthread numa)
+link_libraries(pthread numa tbb)
 set(CMAKE_CXX_COMPILER "g++")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY bin)
 
