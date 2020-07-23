@@ -4,7 +4,7 @@
 #include "split_ordered.h"
 #include "rand_seeds.h"
 static const int NUM_TEST = 4'000'000;
-//static const int RANGE = 1'000;
+static const int RANGE = 1'000;
 
 #ifndef WRITE_RATIO
 #define WRITE_RATIO 30
