@@ -1,9 +1,11 @@
 #include <iostream>
+#include <random>
 #include <chrono>
 #include <vector>
 #include <thread>
 #include <tbb/concurrent_hash_map.h>
 #include "split_ordered.h"
+#include "rand_seeds.h"
 static const int NUM_TEST = 4'000'000;
 //static const int RANGE = 1'000;
 constexpr unsigned MAX_THREAD = 128;
@@ -17,43 +19,33 @@ using namespace chrono;
 
 tbb::concurrent_hash_map<unsigned long, unsigned long> my_table;
 
-unsigned long fast_rand(void)
-{ //period 2^96-1
-    static thread_local unsigned long x = 123456789, y = 362436069, z = 521288629;
-    unsigned long t;
-    x ^= x << 16;
-    x ^= x >> 5;
-    x ^= x << 1;
-
-    t = x;
-    x = y;
-    y = z;
-    z = t ^ x ^ y;
-
-    return z;
-}
-
-
-
-void benchmark(int num_thread)
+void benchmark(int num_thread, int tid)
 {
+    mt19937_64 rng{rand_seeds[tid]};
+#ifdef RANGE_LIMIT
+    uniform_int_distribution<unsigned long> dist{0, RANGE-1};
+#else
+    uniform_int_distribution<unsigned long> dist;
+#endif
+    uniform_int_distribution<unsigned long> cmd_dist{0, 99};
+
     pin_thread();
     for (int i = 0; i < NUM_TEST / num_thread; ++i)
     {
-        if (fast_rand() % 100 < WRITE_RATIO) {
-            if (fast_rand() % 100 < 50) {
+        if (cmd_dist(rng) < WRITE_RATIO) {
+            if (cmd_dist(rng) < 50) {
                 tbb::concurrent_hash_map<unsigned long, unsigned long>::accessor a;
-                if (my_table.insert(a, fast_rand())) {
-                    a->second = fast_rand();
+                if (my_table.insert(a, dist(rng))) {
+                    a->second = dist(rng);
                 }
             }
             else {
-                my_table.erase(fast_rand());
+                my_table.erase(dist(rng));
             }
         }
         else {
             tbb::concurrent_hash_map<unsigned long, unsigned long>::const_accessor a;
-            my_table.find(a, fast_rand());
+            my_table.find(a, dist(rng));
         }
     }
 }
@@ -75,7 +67,7 @@ int main(int argc, char *argv[])
     vector<thread> worker;
     auto start_t = high_resolution_clock::now();
     for (int i = 0; i < num_thread; ++i)
-        worker.push_back(thread{benchmark, num_thread});
+        worker.push_back(thread{benchmark, num_thread, i});
     for (auto &th : worker)
         th.join();
     auto du = high_resolution_clock::now() - start_t;
