@@ -7,7 +7,6 @@
 #include "split_ordered.h"
 #include "rand_seeds.h"
 static const int NUM_TEST = 4'000'000;
-static const int RANGE = 1'000;
 constexpr unsigned MAX_THREAD = 128;
 
 #ifndef WRITE_RATIO
@@ -23,7 +22,7 @@ void benchmark(int num_thread, int tid)
 {
     mt19937_64 rng{rand_seeds[tid]};
 #ifdef RANGE_LIMIT
-    uniform_int_distribution<unsigned long> dist{0, RANGE-1};
+    uniform_int_distribution<unsigned long> dist{0, RANGE_LIMIT-1};
 #else
     uniform_int_distribution<unsigned long> dist;
 #endif
