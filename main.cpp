@@ -1,50 +1,42 @@
+#include <random>
 #include <chrono>
 #include "lf_set.h"
 #include "split_ordered.h"
+#include "rand_seeds.h"
 static const int NUM_TEST = 4'000'000;
-static const int RANGE = 1'000;
+
+#ifndef WRITE_RATIO
+#define WRITE_RATIO 30
+#endif
 
 using namespace std;
 using namespace chrono;
 
 SO_Hashtable my_table;
 
-unsigned long fast_rand(void)
-{ //period 2^96-1
-    static thread_local unsigned long x = 123456789, y = 362436069, z = 521288629;
-    unsigned long t;
-    x ^= x << 16;
-    x ^= x >> 5;
-    x ^= x << 1;
-
-    t = x;
-    x = y;
-    y = z;
-    z = t ^ x ^ y;
-
-    return z;
-}
-
-void benchmark(int num_thread)
+void benchmark(int num_thread, int tid)
 {
+	mt19937_64 rng{rand_seeds[tid]};
+#ifdef RANGE_LIMIT
+    uniform_int_distribution<unsigned long> dist{0, RANGE_LIMIT-1};
+#else
+    uniform_int_distribution<unsigned long> dist;
+#endif
+    uniform_int_distribution<unsigned long> cmd_dist{0, 99};
+
     pin_thread();
     for (int i = 0; i < NUM_TEST / num_thread; ++i)
     {
-        //	if (0 == i % 100000) cout << ".";
-        switch (fast_rand() % 3)
-        {
-        case 0:
-            my_table.insert(fast_rand() % RANGE, fast_rand());
-            break;
-        case 1:
-            my_table.remove(fast_rand() % RANGE);
-            break;
-        case 2:
-            my_table.find(fast_rand() % RANGE);
-            break;
-        default:
-            cout << "ERROR!!!\n";
-            exit(-1);
+		if (cmd_dist(rng) < WRITE_RATIO) {
+            if (cmd_dist(rng) < 50) {
+                my_table.insert(dist(rng), dist(rng));
+            }
+            else {
+                my_table.remove(dist(rng));
+            }
+        }
+        else {
+            my_table.find(dist(rng));
         }
     }
 }
@@ -66,7 +58,7 @@ int main(int argc, char *argv[])
     vector<thread> worker;
     auto start_t = high_resolution_clock::now();
     for (int i = 0; i < num_thread; ++i)
-        worker.push_back(thread{benchmark, num_thread});
+        worker.push_back(thread{benchmark, num_thread, i});
     for (auto &th : worker)
         th.join();
     auto du = high_resolution_clock::now() - start_t;
