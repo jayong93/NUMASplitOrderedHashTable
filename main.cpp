@@ -56,7 +56,7 @@ int main(int argc, char *argv[])
     const unsigned NUMA_NODE_NUM = numa_num_configured_nodes();
     const unsigned CPU_NUM = numa_num_configured_cpus()/2;
     const unsigned CORE_PER_NODE = CPU_NUM/NUMA_NODE_NUM;
-    auto required_node_num = max(1u, min(num_thread/CORE_PER_NODE, NUMA_NODE_NUM));
+    auto required_node_num = max(1u, min((unsigned)ceil((double)num_thread/(double)CORE_PER_NODE), NUMA_NODE_NUM));
     auto real_num_thread = num_thread;
     if (num_thread >= CORE_PER_NODE) {
         real_num_thread -= 1 + required_node_num;
