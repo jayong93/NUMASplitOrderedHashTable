@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.10)
 
 project("tbb_test")
 set(CMAKE_VERBOSE_MAKEFILE true)
+set(CMAKE_EXPORT_COMPILE_COMMANDS true)
 
 set(OUTPUT_NAME "${CMAKE_PROJECT_NAME}")
 set(SRC_FILES
