@@ -60,7 +60,7 @@ unsigned long so_regular_key(unsigned long key)
 
 unsigned long so_dummy_key(unsigned long key)
 {
-    return reverse_bits(key);
+    return reverse_bits(key & (~KEY_MASK));
 }
 
 uintptr_t get_parent(uintptr_t bucket)
@@ -162,7 +162,10 @@ bool SO_Hashtable::insert(unsigned long key, unsigned long value)
     auto bucket_arr = get_bucket_array();
     auto bucket_num = get_bucket_num();
 
-    auto node = new LFNODE{so_regular_key(key), value};
+    auto node = node_allocator.alloc(so_regular_key(key), value);
+    if (node->key != so_regular_key(key)) {
+        cout << "Error: " << so_regular_key(key) << "has been turned to" << node->key << endl;
+    }
     auto bucket = key % bucket_num->load(memory_order_relaxed);
     auto bucket_node = bucket_arr->get_bucket(bucket);
     if (bucket_node == nullptr)
@@ -171,7 +174,7 @@ bool SO_Hashtable::insert(unsigned long key, unsigned long value)
     }
     if (!this->item_set.Add(*bucket_node, *node))
     {
-        delete node;
+        node_allocator.dealloc(node);
         return false;
     }
     return true;

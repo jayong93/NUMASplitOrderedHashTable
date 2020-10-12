@@ -12,6 +12,7 @@
 #include <climits>
 #include <algorithm>
 #include <optional>
+#include "custom_allocator.h"
 
 using namespace std;
 
@@ -80,6 +81,14 @@ public:
         return (0 != ((uintptr_t)next & 1));
     }
 };
+
+#ifdef _IMPL_LF_SET_
+#define EXTERN
+#else
+#define EXTERN extern
+#endif
+EXTERN thread_local PoolAllocator<LFNODE> node_allocator;
+#undef EXTERN
 
 class LFSET
 {

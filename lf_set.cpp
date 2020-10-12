@@ -1,3 +1,4 @@
+#define _IMPL_LF_SET_
 #include "lf_set.h"
 
 struct EpochNode
@@ -40,7 +41,7 @@ void retire(LFNODE *node)
         auto removed_it = remove_if(retired_list.begin(), retired_list.end(), [min_epoch](auto &r_node) {
             if (r_node.epoch < min_epoch)
             {
-                delete r_node.ptr;
+                node_allocator.dealloc(r_node.ptr);
                 return true;
             }
             return false;
@@ -69,7 +70,7 @@ void LFSET::Init()
     {
         LFNODE *temp = head.GetNext();
         head.next = temp->next;
-        delete temp;
+        node_allocator.dealloc(temp);
     }
 }
 
@@ -120,13 +121,13 @@ retry:
 LFNODE *LFSET::Add(LFNODE& from, unsigned long x, unsigned long value)
 {
     LFNODE *pred, *curr;
-    LFNODE *e = new LFNODE(x, value);
+    LFNODE *e = node_allocator.alloc(x, value);
     while (true)
     {
         if (true == Find(from, x, &pred, &curr))
         {
             end_op();
-            delete e;
+            node_allocator.dealloc(e);
             return curr;
         }
         else
