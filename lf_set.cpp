@@ -122,6 +122,9 @@ LFNODE *LFSET::Add(LFNODE& from, unsigned long x, unsigned long value)
 {
     LFNODE *pred, *curr;
     LFNODE *e = node_allocator.alloc(x, value);
+    if (x != e->key) {
+        cout << "Error: x was " << x << " and e->key was " << e->key << endl;
+    }
     while (true)
     {
         if (true == Find(from, x, &pred, &curr))

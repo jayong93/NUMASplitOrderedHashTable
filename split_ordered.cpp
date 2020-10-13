@@ -121,7 +121,9 @@ LFNODE *SO_Hashtable::init_bucket(uintptr_t bucket)
     {
         parent_node = this->init_bucket(parent);
     }
-    auto dummy = item_set.Add(*parent_node, so_dummy_key(bucket));
+
+    unsigned long dummy_key = so_dummy_key(bucket);
+    auto dummy = item_set.Add(*parent_node, dummy_key, 0);
     bucket_arr->set_bucket(bucket, dummy);
     return dummy;
 }
@@ -163,9 +165,6 @@ bool SO_Hashtable::insert(unsigned long key, unsigned long value)
     auto bucket_num = get_bucket_num();
 
     auto node = node_allocator.alloc(so_regular_key(key), value);
-    if (node->key != so_regular_key(key)) {
-        cout << "Error: " << so_regular_key(key) << "has been turned to" << node->key << endl;
-    }
     auto bucket = key % bucket_num->load(memory_order_relaxed);
     auto bucket_node = bucket_arr->get_bucket(bucket);
     if (bucket_node == nullptr)
