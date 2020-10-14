@@ -28,6 +28,7 @@ public:
     bool is_new; // dummy node일 경우에만 의미가 있음.
     LFNODE *next;
 
+    LFNODE() : LFNODE{0, 0} {}
     LFNODE(unsigned long key, unsigned long value) : key{ key }, next{ nullptr }, value{ value }, is_new{ true } {}
 
     LFNODE *GetNext()
