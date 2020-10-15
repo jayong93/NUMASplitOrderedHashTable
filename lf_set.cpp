@@ -1,6 +1,8 @@
 #define LFSET_IMPL
 #include "lf_set.h"
 
+namespace so_hash_table {
+
 struct EpochNode
 {
     LFNODE *ptr;
@@ -230,4 +232,6 @@ optional<unsigned long> LFSET::Contains(LFNODE &from, unsigned long x)
     }
     end_op();
     return ret;
+}
+
 }

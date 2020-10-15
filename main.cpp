@@ -9,6 +9,7 @@ static const int NUM_TEST = 4'000'000;
 #define WRITE_RATIO 30
 #endif
 
+using namespace so_hash_table;
 using namespace std;
 using namespace chrono;
 

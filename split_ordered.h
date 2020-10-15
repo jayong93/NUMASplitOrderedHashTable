@@ -6,6 +6,8 @@
 #include <memory>
 #include "lf_set.h"
 
+namespace so_hash_table {
+
 constexpr unsigned SEGMENT_SIZE = 1024*1024;
 constexpr unsigned LOAD_FACTOR = 1;
 
@@ -37,4 +39,6 @@ private:
 };
 
 void pin_thread();
+
+}
 #endif /* ADDE381D_44C2_4BEC_A967_FE5043D7D5B2 */

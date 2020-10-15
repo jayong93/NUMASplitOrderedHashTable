@@ -1,12 +1,18 @@
 #include <numa.h>
 #include "split_ordered.h"
 
+namespace so_hash_table {
+
 template<typename T>
 constexpr int width() {
     return sizeof(T) * 8;
 }
 
 using namespace std;
+
+static const unsigned NUMA_NODE_NUM = numa_num_configured_nodes();
+static const unsigned CPU_NUM = numa_num_configured_cpus()/2;
+static const unsigned CORE_PER_NODE = CPU_NUM/NUMA_NODE_NUM;
 
 // macros to generate the lookup table (at compile-time)
 #define R2(n) n, n + 2 * 64, n + 1 * 64, n + 3 * 64
@@ -19,6 +25,7 @@ using namespace std;
 static unsigned long lookup[256] = {REVERSE_BITS};
 static atomic_uint tid_counter{0};
 static thread_local unsigned tid = tid_counter.fetch_add(1, memory_order_relaxed);
+static thread_local const unsigned numa_id = (tid/CORE_PER_NODE) % NUMA_NODE_NUM;
 
 unsigned long reverse_bits(unsigned long num)
 {
@@ -166,5 +173,11 @@ BucketArray::BucketArray(LFNODE *first_bucket)
 }
 
 void pin_thread() {
-    numa_run_on_node((tid / 8) % 4);
+	if (-1 == numa_run_on_node(numa_id))
+    {
+        fprintf(stderr, "Can't bind thread #%d to node #%d\n", tid, numa_id);
+        exit(-1);
+    }
+}
+
 }
