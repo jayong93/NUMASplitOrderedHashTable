@@ -15,7 +15,7 @@
 
 using namespace std;
 
-constexpr unsigned MAX_THREAD = 64 + 4;
+constexpr unsigned MAX_THREAD = 128;
 constexpr uintptr_t WITH_MARK = -1;
 constexpr uintptr_t POINTER_ONLY = -2;
 

@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.10)
 
 project("SplitOrdered_Hashtable")
 set(CMAKE_VERBOSE_MAKEFILE true)
+set(CMAKE_EXPORT_COMPILE_COMMANDS true)
 
 set(OUTPUT_NAME "${CMAKE_PROJECT_NAME}")
 set(SRC_FILES
@@ -17,7 +18,9 @@ if (NOT WRITE_RATIO)
     set(WRITE_RATIO 30)
 endif()
 if (RANGE_LIMIT)
-    add_definitions(-DRANGE_LIMIT)
+    add_definitions(-DRANGE_LIMIT=${RANGE_LIMIT})
+else()
+    add_definitions(-DRANGE_LIMIT=1000)
 endif()
 
 add_compile_options(-g -ggdb -std=c++17)

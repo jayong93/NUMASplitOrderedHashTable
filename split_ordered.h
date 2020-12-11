@@ -32,7 +32,7 @@ struct BucketNotification
 class SO_Hashtable
 {
 public:
-    SO_Hashtable();
+    SO_Hashtable(unsigned node_num);
     ~SO_Hashtable();
     bool remove(unsigned long key);
     optional<unsigned long> find(unsigned long key);

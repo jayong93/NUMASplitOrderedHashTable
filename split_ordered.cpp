@@ -177,8 +177,10 @@ bool SO_Hashtable::insert(unsigned long key, unsigned long value)
     return true;
 }
 
-void global_helper_thread_func(LFSET *set, std::vector<SPSCQueue<BucketNotification> *> *queues)
+void global_helper_thread_func(LFSET *set, std::vector<SPSCQueue<BucketNotification> *> *queues, bitmask* node_mask)
 {
+    numa_run_on_node_mask(node_mask);
+    numa_bitmask_free(node_mask);
     while (true)
     {
         uintptr_t size = 0;
@@ -244,21 +246,26 @@ void local_helper_thread_fun(unsigned numa_idx, SPSCQueue<BucketNotification> *q
     }
 }
 
-SO_Hashtable::SO_Hashtable()
+SO_Hashtable::SO_Hashtable(unsigned node_num)
 {
-    const auto numa_node_num = numa_num_configured_nodes();
     LFNODE *first_bucket = new LFNODE{0, 0};
     first_bucket->is_new = false;
     item_set.Add(item_set.get_head(), *first_bucket);
-    for (auto i = 0; i < numa_node_num; ++i)
+    for (auto i = 0; i < node_num; ++i)
     {
         bucket_array.push_back(NUMA_alloc<BucketArray>(i, first_bucket));
         msg_queues.push_back(NUMA_alloc<SPSCQueue<BucketNotification>>(i));
         bucket_nums.push_back(NUMA_alloc<atomic_uintptr_t>(i, 2));
         item_nums.push_back(NUMA_alloc<atomic_uintptr_t>(i, 0));
     }
-    this->global_helper = std::thread{global_helper_thread_func, &this->item_set, &this->msg_queues};
-    for (auto i = 0; i < numa_node_num; ++i)
+
+    auto node_mask = numa_allocate_nodemask();
+    for (auto i=0; i<node_num; ++i) {
+        node_mask = numa_bitmask_setbit(node_mask, i);
+    }
+
+    this->global_helper = std::thread{global_helper_thread_func, &this->item_set, &this->msg_queues, node_mask};
+    for (auto i = 0; i < node_num; ++i)
     {
         this->local_helpers.emplace_back(local_helper_thread_fun, i, this->msg_queues[i], bucket_array[i], bucket_nums[i], item_nums[i]);
     }
